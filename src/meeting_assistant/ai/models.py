@@ -56,3 +56,25 @@ class RawAnalysis(StrictModel):
         ]
     ] = Field(default_factory=list, max_length=20)
 
+
+class ActionSuggestion(StrictModel):
+    content: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    ]
+    owner: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+    ] | None
+    owner_needs_confirmation: bool
+    due_date_expression: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)
+    ] | None
+    due_date: Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}$")] | None
+    due_date_needs_confirmation: bool
+    sources: list[SourceReference] = Field(min_length=1, max_length=20)
+    warnings: list[
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, min_length=1, max_length=300),
+        ]
+    ] = Field(default_factory=list, max_length=20)
+
