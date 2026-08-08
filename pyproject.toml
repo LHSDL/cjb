@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "会议记录与行动项协同助手"
 requires-python = ">=3.11"
 dependencies = [
+    "openai>=1.50,<3",
+    "pydantic>=2.7,<3",
+    "python-dotenv>=1,<2",
     "typer>=0.12,<1",
     "rich>=13,<15",
 ]
