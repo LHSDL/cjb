@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meeting-assistant"
+version = "0.1.0"
+description = "会议记录与行动项协同助手"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12,<1",
+    "rich>=13,<15",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+meeting-assistant = "meeting_assistant.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--basetemp=.tmp/pytest -p no:cacheprovider"
