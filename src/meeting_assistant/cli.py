@@ -9,6 +9,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from meeting_assistant.ai.analyzer import AIAnalyzer
+from meeting_assistant.ai.client import (
+    AIAnalysisError,
+    AIConfigurationError,
+    DashScopeClient,
+    DashScopeSettings,
+)
 from meeting_assistant.config import default_database_path
 from meeting_assistant.db import Database
 from meeting_assistant.repositories import ActionItemRepository, MeetingRepository
@@ -20,8 +27,10 @@ from meeting_assistant.validators import ValidationError
 app = typer.Typer(help="会议记录与行动项协同助手")
 meeting_app = typer.Typer(help="管理会议记录")
 action_app = typer.Typer(help="管理行动项")
+ai_app = typer.Typer(help="使用千问分析会议记录")
 app.add_typer(meeting_app, name="meeting")
 app.add_typer(action_app, name="action")
+app.add_typer(ai_app, name="ai")
 console = Console()
 
 
@@ -32,6 +41,11 @@ def _services() -> tuple[MeetingService, ActionItemService]:
     return MeetingService(meeting_repository), ActionItemService(
         ActionItemRepository(database), meeting_repository
     )
+
+
+def _ai_analyzer() -> AIAnalyzer:
+    settings = DashScopeSettings.from_env()
+    return AIAnalyzer(DashScopeClient(settings), model_name=settings.model)
 
 
 def _abort(error: Exception) -> None:
@@ -74,6 +88,59 @@ def _action_table(items) -> Table:
             item.content,
         )
     return table
+
+
+def _source_text(sources) -> str:
+    return "\n".join(f"{source.line_id}: {source.quote}" for source in sources)
+
+
+def _print_ai_analysis(analysis) -> None:
+    console.print(
+        Panel(
+            analysis.summary,
+            title="AI 会议摘要",
+            subtitle=f"模型：{analysis.model}",
+        )
+    )
+
+    decisions = Table(title="AI 决策建议")
+    decisions.add_column("决策")
+    decisions.add_column("原文来源")
+    for decision in analysis.decisions:
+        decisions.add_row(decision.content, _source_text(decision.sources))
+    console.print(decisions)
+
+    actions = Table(title="AI 行动项建议")
+    actions.add_column("任务")
+    actions.add_column("负责人")
+    actions.add_column("截止日期")
+    actions.add_column("原文来源")
+    actions.add_column("提示")
+    for item in analysis.action_items:
+        confirmations = []
+        if item.owner_needs_confirmation:
+            confirmations.append("负责人待确认")
+        if item.due_date_needs_confirmation:
+            confirmations.append("日期待确认")
+        confirmations.extend(item.warnings)
+        actions.add_row(
+            item.content,
+            item.owner or "待确认",
+            item.due_date or "待确认",
+            _source_text(item.sources),
+            "；".join(confirmations) or "-",
+        )
+    console.print(actions)
+
+    if analysis.security_warnings:
+        console.print(
+            Panel(
+                "\n".join(f"- {warning}" for warning in analysis.security_warnings),
+                title="安全警告",
+                border_style="yellow",
+            )
+        )
+    console.print("[yellow]以上仅为 AI 建议，建议未写入正式行动项。[/yellow]")
 
 
 @meeting_app.command("add")
@@ -211,6 +278,43 @@ def list_actions(
             )
         )
     except (ValidationError, sqlite3.Error, OSError) as error:
+        _abort(error)
+
+
+@ai_app.command("check-config")
+def check_ai_config() -> None:
+    """检查百炼配置，不发送会议内容且不显示密钥。"""
+    try:
+        settings = DashScopeSettings.from_env()
+        console.print("[green]AI 配置完整[/green]")
+        console.print(f"模型：{settings.model}")
+        console.print(f"接口：{settings.base_url}")
+        console.print("API Key：已设置（内容已隐藏）")
+    except AIConfigurationError as error:
+        _abort(error)
+
+
+@ai_app.command("analyze")
+def analyze_meeting(
+    meeting_id: int,
+    json_output: bool = typer.Option(False, "--json", help="输出机器可读 JSON"),
+) -> None:
+    """使用千问分析已有会议；结果只作建议，不写数据库。"""
+    try:
+        meetings, _ = _services()
+        meeting = meetings.get_meeting(meeting_id)
+        analysis = _ai_analyzer().analyze(meeting)
+        if json_output:
+            console.print(analysis.model_dump_json(indent=2))
+        else:
+            _print_ai_analysis(analysis)
+    except (
+        AIAnalysisError,
+        ValidationError,
+        LookupError,
+        sqlite3.Error,
+        OSError,
+    ) as error:
         _abort(error)
 
 

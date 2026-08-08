@@ -28,3 +28,6 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "--basetemp=.tmp/pytest -p no:cacheprovider"
+markers = [
+    "integration: 调用真实外部服务的显式集成测试",
+]
