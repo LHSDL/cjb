@@ -78,3 +78,20 @@ class ActionSuggestion(StrictModel):
         ]
     ] = Field(default_factory=list, max_length=20)
 
+
+class AIAnalysis(StrictModel):
+    model: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+    ]
+    summary: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)
+    ]
+    decisions: list[RawDecision] = Field(default_factory=list, max_length=20)
+    action_items: list[ActionSuggestion] = Field(default_factory=list, max_length=20)
+    security_warnings: list[
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, min_length=1, max_length=300),
+        ]
+    ] = Field(default_factory=list, max_length=40)
+
