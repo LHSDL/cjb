@@ -58,7 +58,7 @@ pjt/
 
 | 文件 | 主要功能 | 验收时如何观察 |
 |---|---|---|
-| `cli.py` | 定义 `meeting`、`action`、`ai`、`seed-demo` 命令，输出中文表格和错误 | 执行 `meeting-assistant --help` |
+| `cli.py` | 定义 `meeting`、`action`、`ai`、`seed-demo` 命令，输出中文表格和错误 | 执行 `& $cjbPython -m meeting_assistant.cli --help` |
 | `config.py` | 默认使用 `data/meeting_assistant.db`，支持 `MEETING_ASSISTANT_DB` 覆盖 | 指定独立演示数据库运行 |
 | `db.py` | 创建会议表、行动项表、外键和筛选索引；启用外键与忙等待 | 首次运行自动生成数据库 |
 | `models.py` | 定义会议和行动项在程序内的数据结构 | `meeting show`、`action list` 的字段与其对应 |
@@ -74,7 +74,7 @@ pjt/
 | `ai/security.py` | 识别“忽略规则”“生成 N 条”等提示注入表达 | 使用任务书指定对抗输入 |
 | `ai/date_resolver.py` | 以 `meeting_date` 为唯一基准解析“明天”“下周五”等表达 | 示例会议中“下周五”得到 `2026-08-14` |
 | `ai/deduplication.py` | 合并包含关系明显的重复任务，保留多条来源；冲突字段转待确认 | 使用重复提及任务的会议记录 |
-| `tests/test_*.py` | 数据库、会议、行动项、筛选、CLI、演示数据测试 | `python -m pytest -v` |
+| `tests/test_*.py` | 数据库、会议、行动项、筛选、CLI、演示数据测试 | `& $cjbPython -m pytest -v` |
 | `tests/ai/test_*.py` | Prompt、契约、客户端、日期、去重、注入和真实千问测试 | 显式启用真实集成测试 |
 
 本机另有 `项目验收操作手册.docx` 和 `PROMPT_AND_API.local.md`，用于现场逐步验收和手动切换 API；两者包含本地操作信息，不提交 GitHub。
@@ -85,17 +85,24 @@ pjt/
 
 ```powershell
 conda env create -f environment.yml
-conda activate cjb
+$cjbPython = "E:\anaconda\envs\cjb\python.exe"
 ```
 
 如果 `cjb` 环境已经存在：
 
 ```powershell
-conda activate cjb
-python -m pip install -e ".[dev]"
+$cjbPython = "E:\anaconda\envs\cjb\python.exe"
+& $cjbPython -m pip install -e ".[dev]"
 ```
 
 要求 Python 3.11 或更高版本。运行数据默认保存在 `data/meeting_assistant.db`，该目录不会提交到 Git。
+
+后续所有命令都使用 `$cjbPython` 启动模块，不依赖 PowerShell 是否能在 PATH 中找到 `meeting-assistant.exe`。每次新开 PowerShell 后先执行：
+
+```powershell
+cd E:\面试项目\超聚变-mlz\pjt
+$cjbPython = "E:\anaconda\envs\cjb\python.exe"
+```
 
 ## 千问 AI 配置
 
@@ -112,13 +119,13 @@ DASHSCOPE_TIMEOUT_SECONDS=30
 
 ```powershell
 # 只检查配置完整性，不发送会议内容，也不打印密钥
-meeting-assistant ai check-config
+& $cjbPython -m meeting_assistant.cli ai check-config
 
 # 分析已有会议；默认以面板和表格展示
-meeting-assistant ai analyze 1
+& $cjbPython -m meeting_assistant.cli ai analyze 1
 
 # 输出经过校验的 JSON
-meeting-assistant ai analyze 1 --json
+& $cjbPython -m meeting_assistant.cli ai analyze 1 --json
 ```
 
 AI 结果仅作建议。命令不会新增、编辑或完成正式行动项。
@@ -129,17 +136,17 @@ AI 结果仅作建议。命令不会新增、编辑或完成正式行动项。
 
 ```powershell
 # 查看全部命令
-meeting-assistant --help
+& $cjbPython -m meeting_assistant.cli --help
 
 # 创建可重复执行的演示数据
-meeting-assistant seed-demo
+& $cjbPython -m meeting_assistant.cli seed-demo
 
 # 查看会议
-meeting-assistant meeting list
-meeting-assistant meeting show 1
+& $cjbPython -m meeting_assistant.cli meeting list
+& $cjbPython -m meeting_assistant.cli meeting show 1
 
 # 新增会议；缺少的参数会进入交互式输入
-meeting-assistant meeting add
+& $cjbPython -m meeting_assistant.cli meeting add
 ```
 
 创建会议时必须录入会议日期，格式为 `YYYY-MM-DD`。该日期是会议的业务日期；第二阶段 AI 解析“下周五”等相对截止日期时，必须以它为基准。
@@ -148,24 +155,24 @@ meeting-assistant meeting add
 
 ```powershell
 # 新增
-meeting-assistant action add --meeting-id 1 --content "完成接口联调" `
+& $cjbPython -m meeting_assistant.cli action add --meeting-id 1 --content "完成接口联调" `
   --owner "王芳" --due-date "2026-08-14"
 
 # 查看全部或组合筛选
-meeting-assistant action list
-meeting-assistant action list --owner "王芳"
-meeting-assistant action list --status pending
-meeting-assistant action list --due-before 2026-08-14
-meeting-assistant action list --owner "王芳" --status pending --meeting-id 1
+& $cjbPython -m meeting_assistant.cli action list
+& $cjbPython -m meeting_assistant.cli action list --owner "王芳"
+& $cjbPython -m meeting_assistant.cli action list --status pending
+& $cjbPython -m meeting_assistant.cli action list --due-before 2026-08-14
+& $cjbPython -m meeting_assistant.cli action list --owner "王芳" --status pending --meeting-id 1
 
 # 局部编辑；未提供的字段保持原值
-meeting-assistant action edit 1 --content "完成接口联调并复核"
+& $cjbPython -m meeting_assistant.cli action edit 1 --content "完成接口联调并复核"
 
 # 清空字段必须显式指定，避免误操作
-meeting-assistant action edit 1 --clear-owner --clear-due-date
+& $cjbPython -m meeting_assistant.cli action edit 1 --clear-owner --clear-due-date
 
 # 完成；重复执行不会覆盖首次完成时间
-meeting-assistant action complete 1
+& $cjbPython -m meeting_assistant.cli action complete 1
 ```
 
 负责人和截止日期允许为空，界面显示为“待确认”。`--due-before` 包含指定日期当天。
@@ -176,14 +183,13 @@ meeting-assistant action complete 1
 
 ```powershell
 $env:MEETING_ASSISTANT_DB = "data/demo.db"
-meeting-assistant seed-demo
+& $cjbPython -m meeting_assistant.cli seed-demo
 ```
 
 ## 自动化测试
 
 ```powershell
-conda activate cjb
-python -m pytest -v
+& $cjbPython -m pytest -v
 ```
 
 测试使用真实的临时 SQLite 数据库，不使用固定成功返回值。覆盖正常、异常和边界场景，包括空记录、超长记录、非法日期、无效关联、幂等完成、局部编辑、组合筛选和幂等样例导入。
@@ -192,21 +198,21 @@ python -m pytest -v
 
 ```powershell
 $env:RUN_DASHSCOPE_INTEGRATION = "1"
-python -m pytest tests/ai/test_dashscope_integration.py -v -s
-Remove-Item Env:RUN_DASHSCOPE_INTEGRATION
+& $cjbPython -m pytest tests/ai/test_dashscope_integration.py -v -s
+Remove-Item Env:RUN_DASHSCOPE_INTEGRATION -ErrorAction SilentlyContinue
 ```
 
 真实测试使用任务书指定的提示注入文本，只输出测试结论，不打印 API Key。
 
 ## 演示建议
 
-1. 执行 `meeting-assistant seed-demo`，显示新增 3 场会议、8 条行动项。
-2. 执行 `meeting-assistant meeting list` 和 `meeting show 1`。
+1. 执行 `& $cjbPython -m meeting_assistant.cli seed-demo`，显示新增 3 场会议、8 条行动项。
+2. 执行 `& $cjbPython -m meeting_assistant.cli meeting list` 和 `meeting show 1`。
 3. 新增一场会议和一条行动项，再编辑、筛选并完成。
 4. 使用空记录创建会议，展示非零退出与中文错误。
 5. 再次执行 `seed-demo`，展示新增数量为 0，证明幂等。
-6. 执行 `python -m pytest -v`。
-7. 执行 `meeting-assistant ai analyze 1`，展示摘要、决策、行动项、负责人、日期和来源。
+6. 执行 `& $cjbPython -m pytest -v`。
+7. 执行 `& $cjbPython -m meeting_assistant.cli ai analyze 1`，展示摘要、决策、行动项、负责人、日期和来源。
 8. 使用任务书对抗输入运行 AI 分析，展示安全警告且没有批量伪造行动项。
 9. 临时填写错误密钥执行 AI 分析，展示失败降级后 `meeting list` 和手工行动项仍可用。
 
