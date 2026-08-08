@@ -15,6 +15,9 @@ from meeting_assistant.validators import (
 )
 
 
+UNSET = object()
+
+
 class MeetingService:
     def __init__(self, repository: MeetingRepository):
         self.repository = repository
@@ -85,18 +88,30 @@ class ActionItemService:
         self,
         action_id: int,
         *,
-        content: str,
-        owner: str | None,
-        due_date: str | None,
+        content: str | object = UNSET,
+        owner: str | None | object = UNSET,
+        due_date: str | None | object = UNSET,
     ) -> ActionItem:
+        current = self.repository.get(action_id)
+        if current is None:
+            raise LookupError(f"行动项不存在：{action_id}")
+        next_content = current.content if content is UNSET else content
+        next_owner = current.owner if owner is UNSET else owner
+        next_due_date = current.due_date if due_date is UNSET else due_date
+        if not isinstance(next_content, str):
+            raise TypeError("行动项内容必须是字符串")
+        if next_owner is not None and not isinstance(next_owner, str):
+            raise TypeError("负责人必须是字符串或空值")
+        if next_due_date is not None and not isinstance(next_due_date, str):
+            raise TypeError("截止日期必须是字符串或空值")
         item = self.repository.update(
             action_id,
-            content=required_text(content, label="行动项内容", maximum=500),
-            owner=optional_text(owner, label="负责人", maximum=100),
-            due_date=optional_absolute_date(due_date, label="截止日期"),
+            content=required_text(next_content, label="行动项内容", maximum=500),
+            owner=optional_text(next_owner, label="负责人", maximum=100),
+            due_date=optional_absolute_date(next_due_date, label="截止日期"),
             timestamp=self._timestamp(),
         )
-        if item is None:
+        if item is None:  # 防御并发删除；当前版本不提供删除命令。
             raise LookupError(f"行动项不存在：{action_id}")
         return item
 

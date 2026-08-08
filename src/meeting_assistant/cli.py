@@ -13,7 +13,7 @@ from meeting_assistant.config import default_database_path
 from meeting_assistant.db import Database
 from meeting_assistant.repositories import ActionItemRepository, MeetingRepository
 from meeting_assistant.seed import seed_demo
-from meeting_assistant.services import ActionItemService, MeetingService
+from meeting_assistant.services import UNSET, ActionItemService, MeetingService
 from meeting_assistant.validators import ValidationError
 
 
@@ -149,15 +149,30 @@ def add_action(
 @action_app.command("edit")
 def edit_action(
     action_id: int,
-    content: str = typer.Option(..., "--content", prompt="行动项内容"),
+    content: str | None = typer.Option(None, "--content"),
     owner: str | None = typer.Option(None, "--owner"),
     due_date: str | None = typer.Option(None, "--due-date"),
+    clear_owner: bool = typer.Option(False, "--clear-owner"),
+    clear_due_date: bool = typer.Option(False, "--clear-due-date"),
 ) -> None:
-    """编辑行动项。"""
+    """局部编辑行动项；清空字段需要显式 clear 选项。"""
     try:
+        if owner is not None and clear_owner:
+            raise ValidationError("--owner 与 --clear-owner 不能同时使用")
+        if due_date is not None and clear_due_date:
+            raise ValidationError("--due-date 与 --clear-due-date 不能同时使用")
         _, actions = _services()
         item = actions.update_action_item(
-            action_id, content=content, owner=owner, due_date=due_date
+            action_id,
+            content=content if content is not None else UNSET,
+            owner=None if clear_owner else owner if owner is not None else UNSET,
+            due_date=(
+                None
+                if clear_due_date
+                else due_date
+                if due_date is not None
+                else UNSET
+            ),
         )
         console.print(f"[green]已更新行动项 #{item.id}[/green]")
     except (ValidationError, LookupError, sqlite3.Error, OSError) as error:

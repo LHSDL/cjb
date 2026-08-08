@@ -93,6 +93,43 @@ def test_update_action_item(services):
     assert updated.due_date == "2026-08-15"
 
 
+def test_partial_update_preserves_unspecified_fields(services):
+    meeting_service, action_service = services
+    meeting = create_meeting(meeting_service)
+    item = action_service.create_action_item(
+        meeting_id=meeting.id,
+        content="完成接口联调",
+        owner="王芳",
+        due_date="2026-08-14",
+    )
+
+    updated = action_service.update_action_item(
+        item.id, content="完成接口联调并提交报告"
+    )
+
+    assert updated.owner == "王芳"
+    assert updated.due_date == "2026-08-14"
+
+
+def test_update_can_explicitly_clear_owner_and_due_date(services):
+    meeting_service, action_service = services
+    meeting = create_meeting(meeting_service)
+    item = action_service.create_action_item(
+        meeting_id=meeting.id,
+        content="完成接口联调",
+        owner="王芳",
+        due_date="2026-08-14",
+    )
+
+    updated = action_service.update_action_item(
+        item.id, owner=None, due_date=None
+    )
+
+    assert updated.content == "完成接口联调"
+    assert updated.owner is None
+    assert updated.due_date is None
+
+
 def test_complete_action_item_is_idempotent(services):
     meeting_service, action_service = services
     meeting = create_meeting(meeting_service)
@@ -143,4 +180,3 @@ def test_update_and_complete_missing_action_report_clear_error(services):
         )
     with pytest.raises(LookupError, match="行动项不存在：999"):
         action_service.complete_action_item(999)
-

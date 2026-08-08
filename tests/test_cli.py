@@ -1,6 +1,8 @@
 from typer.testing import CliRunner
 
 from meeting_assistant.cli import app
+from meeting_assistant.db import Database
+from meeting_assistant.repositories import ActionItemRepository
 
 
 runner = CliRunner()
@@ -48,3 +50,36 @@ def test_meeting_add_rejects_empty_record_with_nonzero_exit(db_path):
 
     assert result.exit_code == 1
     assert "会议记录不能为空" in result.stdout
+
+
+def test_action_edit_preserves_fields_that_were_not_supplied(db_path):
+    environment = {"MEETING_ASSISTANT_DB": str(db_path)}
+    runner.invoke(app, ["seed-demo"], env=environment)
+
+    result = runner.invoke(
+        app,
+        ["action", "edit", "1", "--content", "完成接口联调并复核"],
+        env=environment,
+    )
+    item = ActionItemRepository(Database(db_path)).get(1)
+
+    assert result.exit_code == 0
+    assert item.content == "完成接口联调并复核"
+    assert item.owner == "王芳"
+    assert item.due_date == "2026-08-14"
+
+
+def test_action_edit_requires_explicit_flag_to_clear_owner(db_path):
+    environment = {"MEETING_ASSISTANT_DB": str(db_path)}
+    runner.invoke(app, ["seed-demo"], env=environment)
+
+    result = runner.invoke(
+        app,
+        ["action", "edit", "1", "--clear-owner"],
+        env=environment,
+    )
+    item = ActionItemRepository(Database(db_path)).get(1)
+
+    assert result.exit_code == 0
+    assert item.owner is None
+    assert item.content == "完成接口联调"
