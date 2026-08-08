@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 from openai import (
     APIConnectionError,
     APIStatusError,
@@ -39,11 +39,18 @@ class DashScopeSettings:
     @classmethod
     def from_env(cls, env_path: Path | str | None = None) -> "DashScopeSettings":
         path = Path(env_path) if env_path is not None else Path.cwd() / ".env"
-        if path.exists():
-            load_dotenv(path, override=False, encoding="utf-8-sig")
+        file_values = (
+            dotenv_values(path, encoding="utf-8-sig") if path.exists() else {}
+        )
+
+        def configured_value(name: str, default: str = "") -> str:
+            value = os.getenv(name)
+            if value is None:
+                value = file_values.get(name, default)
+            return str(value or default).strip()
 
         names = ("DASHSCOPE_API_KEY", "DASHSCOPE_BASE_URL", "DASHSCOPE_MODEL")
-        values = {name: os.getenv(name, "").strip() for name in names}
+        values = {name: configured_value(name) for name in names}
         missing = [name for name, value in values.items() if not value]
         if missing:
             raise AIConfigurationError(
@@ -52,7 +59,7 @@ class DashScopeSettings:
         if not values["DASHSCOPE_BASE_URL"].startswith(("https://", "http://")):
             raise AIConfigurationError("DASHSCOPE_BASE_URL 必须是 HTTP(S) 地址")
         try:
-            timeout = float(os.getenv("DASHSCOPE_TIMEOUT_SECONDS", "30"))
+            timeout = float(configured_value("DASHSCOPE_TIMEOUT_SECONDS", "30"))
         except ValueError as error:
             raise AIConfigurationError("DASHSCOPE_TIMEOUT_SECONDS 必须是数字") from error
         if timeout <= 0:
@@ -135,4 +142,3 @@ class DashScopeClient:
                     "模型调用失败，会议与手工行动项功能仍可使用"
                 ) from error
         raise AssertionError("unreachable")
-

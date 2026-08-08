@@ -1,3 +1,4 @@
+import os
 from types import SimpleNamespace
 
 import httpx
@@ -67,6 +68,9 @@ def test_settings_load_from_explicit_env_file(tmp_path, monkeypatch):
 
     assert loaded.api_key == "test-key"
     assert loaded.model == "qwen-test"
+    assert "DASHSCOPE_API_KEY" not in os.environ
+    assert "DASHSCOPE_BASE_URL" not in os.environ
+    assert "DASHSCOPE_MODEL" not in os.environ
 
 
 def test_settings_reject_missing_values(tmp_path, monkeypatch):
@@ -109,4 +113,3 @@ def test_client_rejects_empty_model_content():
 
     with pytest.raises(AIAnalysisError, match="模型返回了空内容"):
         client.complete(prompt())
-
